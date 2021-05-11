@@ -1,8 +1,12 @@
 #version 150 core
-uniform vec2 size;
-uniform float scale;
-in vec4 position;
+#extension GL_ARB_explicit_attrib_location: enable
+uniform mat4 modelview;
+uniform mat4 projection;
+layout (location = 0) in vec4 position;
+layout (location = 1) in vec4 color;
+out vec4 vertex_color;
 void main()
 {
- gl_Position = vec4(2.0 * scale / size, 1.0, 1.0) * position;
+ vertex_color = color;
+ gl_Position = projection * modelview * position;
 }

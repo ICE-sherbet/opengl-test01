@@ -23,6 +23,9 @@ class Window
 	// 図形の正規化デバイス座標系上での位置
 	GLfloat location[2];
 
+	// キーボードの状態
+	int keyStatus;
+
 
 public:
 	// コントラクタ
@@ -38,11 +41,23 @@ public:
 		return openwindow();
 	}
 	bool openwindow();
+	// マウス操作
+	void getMouse();
+
+	// キー操作
+	void getKey();
+
 	// ダブルバッファリング
 	void swapBuffers() const;
 
 	// ウィンドウのサイズ変更時の処理
 	static void resize(GLFWwindow* const window, int width, int height);
+
+	// マウスホイール操作時の処理
+	static void wheel(GLFWwindow* const window, double x, double y);
+
+	// キーボード操作時の処理
+	static void keyboard(GLFWwindow* const window, int key, int scancode, int action, int mods);
 
 	// ウィンドウのサイズを取り出す
 	const GLfloat* getSize() const;
@@ -52,5 +67,8 @@ public:
 
 	// 横縦比を取り出す
 	GLfloat getAspect() const;
+
+	// マウス位置を取り出す
+	const GLfloat* getLocation() const;
 
 };

@@ -6,6 +6,10 @@
 #include <GLFW/glfw3.h>
 #include "Shape.h"
 #include "window.h"
+#include "Matrix.h"
+#include "myvec3.h"
+#include "ShapeIndex.h"
+#include "SolidShapeIndex.h"
 #include <fstream>
 
 using namespace std;
@@ -19,6 +23,52 @@ constexpr Object::Vertex rectangleVertex[] =
  { -0.5f, 0.5f }
 };
 
+constexpr Object::Vertex rectangleVertex2[] =
+{
+ { -0.7f, -0.7f },
+ { 0.7f, -0.7f },
+ { 0.7f, 0.7f },
+ { -0.7f, 0.7f }
+};
+// ６面体の頂点の位置
+constexpr Object::Vertex cubeVertex[] =
+{
+ { -1.0f, -1.0f, -1.0f, 0.0f, 0.0f, 0.0f }, // (0)
+ { -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 0.8f }, // (1)
+ { -1.0f, 1.0f, 1.0f, 0.0f, 0.8f, 0.0f }, // (2)
+ { -1.0f, 1.0f, -1.0f, 0.0f, 0.8f, 0.8f }, // (3)
+ { 1.0f, 1.0f, -1.0f, 0.8f, 0.0f, 0.0f }, // (4)
+ { 1.0f, -1.0f, -1.0f, 0.8f, 0.0f, 0.8f }, // (5)
+ { 1.0f, -1.0f, 1.0f, 0.8f, 0.8f, 0.0f }, // (6)
+ { 1.0f, 1.0f, 1.0f, 0.8f, 0.8f, 0.8f } // (7)
+};
+
+// 六面体の面を塗りつぶす三角形の頂点のインデックス
+constexpr GLuint solidCubeIndex[] = {
+	0,1,2,0,2,3,
+	0,3,4,0,4,5,
+	0,5,6,0,6,1,
+	7,6,5,7,5,4,
+	7,4,3,7,3,2,
+	7,2,1,7,1,6
+};
+
+// 六面体の稜線の両端点のインデックス
+constexpr GLuint wireCubeIndex[] =
+{
+ 1, 0, // (a)
+ 2, 7, // (b)
+ 3, 0, // (c)
+ 4, 7, // (d)
+ 5, 0, // (e)
+ 6, 7, // (f)
+ 1, 2, // (g)
+ 2, 3, // (h)
+ 3, 4, // (i)
+ 4, 5, // (j)
+ 5, 6, // (k)
+ 6, 1 // (l)
+};
 // プログラムオブジェクトのリンク結果を表示する
 // program: プログラムオブジェクト名
 GLboolean printProgramInfoLog(GLuint program)
@@ -93,7 +143,8 @@ GLuint createProgram(const char* vsrc, const char* fsrc)
 		glDeleteShader(fobj);
 	}
 	// プログラムオブジェクトをリンクする
-	glBindAttribLocation(program, 0, "position");
+	glBindAttribLocation(program, 0, "position");;
+	glBindAttribLocation(program, 1, "color");
 	glBindFragDataLocation(program, 0, "fragment");
 	glLinkProgram(program);
 	// 作成したプログラムオブジェクトを返す
@@ -189,12 +240,13 @@ int main() {
 	const GLuint program(loadProgram("point.vert", "point.frag"));
 
 	// uniform 変数の場所を取得する
-	//const GLint aspectLoc(glGetUniformLocation(program, "aspect"));
-	const GLint sizeLoc(glGetUniformLocation(program, "size"));
-	const GLint scaleLoc(glGetUniformLocation(program, "scale"));
+	const GLint modelviewLoc(glGetUniformLocation(program, "modelview"));
+	const GLint projectionLoc(glGetUniformLocation(program, "projection"));
 
 	// 図形データを作成する
-	std::unique_ptr<const Shape> shape(new Shape(2, 4, rectangleVertex));
+	std::unique_ptr<const Shape> shape(new SolidShapeIndex(3, 8, cubeVertex,
+		36, solidCubeIndex));
+
 
 	// ウィンドウが開いている間繰り返す
 	while (window)
@@ -204,10 +256,25 @@ int main() {
 		// シェーダプログラムの使用開始
 		glUseProgram(program);
 
+		// 拡大縮小の変換行列を求める
+		const GLfloat* const size(window.getSize());
+		const GLfloat fovy(window.getScale() * 0.01f);
+		const GLfloat aspect(size[0] / size[1]);
+		const Matrix projection(Matrix::perspective(fovy, aspect, 1.0f, 10.0f));
+
+		// モデル変換行列を求める
+		const GLfloat* const location(window.getLocation());
+		const Matrix model(Matrix::translate(location[0]*5, location[1]*5, 0.0f));
+
+		// ビュー変換行列を求める
+		const Matrix view(Matrix::lookat(vec3(1.0f,0.0f,5.0f), vec3::RIGHT, vec3::UP));
+
+		// モデルビュー変換行列を求める
+		const Matrix modelview(view * model);
+
 		// uniform 変数に値を設定する
-		glUniform2fv(sizeLoc, 1, window.getSize());
-		glUniform1f(scaleLoc, window.getScale());
-		//glUniform1f(aspectLoc, window.getAspect());
+		glUniformMatrix4fv(modelviewLoc, 1, GL_FALSE,modelview.data());
+		glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, projection.data());
 
 		//
 		// ここで描画処理を行う
@@ -220,7 +287,5 @@ int main() {
 
 		// カラーバッファを入れ替える
 		window.swapBuffers();
-		// イベントを取り出す
-		glfwWaitEvents();
 	}
 }
